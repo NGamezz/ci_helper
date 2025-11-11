@@ -1,13 +1,29 @@
-use clap::{Args, Parser, Subcommand, command};
+use clap::{Parser, Subcommand, command};
 use serde::Serialize;
+use thiserror::Error;
 
 use crate::{
-    unreal_engine::{error::UnrealError, unreal_project::UnrealProject},
-    utility::search::SearchOptions,
+    cleaner::{args::CleanArgs, error::CleanError},
+    packages::{args::PackagesArgs, error::SetupError},
+    unreal_engine::{args::UnrealArgs, error::UnrealError},
 };
 
+mod cleaner;
+mod packages;
 mod unreal_engine;
 mod utility;
+
+#[derive(Error, Debug)]
+enum Error {
+    #[error("Unreal Error : {0}")]
+    Unreal(#[from] UnrealError),
+
+    #[error("Clean Error : {0}")]
+    Clean(#[from] CleanError),
+
+    #[error("Setup Error : {0}")]
+    Setup(#[from] SetupError),
+}
 
 #[derive(clap::Parser, Clone, Debug)]
 #[command(version, about, long_about = None)]
@@ -23,52 +39,18 @@ struct CliArgs {
 enum Command {
     Unreal(UnrealArgs),
     Clean(CleanArgs),
+    Setup(PackagesArgs),
 }
 
-#[derive(Debug, Args, Serialize, Clone)]
-struct CleanArgs {}
-
-#[derive(Debug, Args, Serialize, Clone)]
-#[command(version, about, long_about = None)]
-struct UnrealArgs {
-    #[command(subcommand)]
-    command: UnrealCommand,
-
-    #[command(flatten)]
-    search_options: SearchOptions,
-}
-
-#[derive(Subcommand, Debug, Clone, Serialize)]
-#[serde(rename_all = "kebab-case")]
-enum UnrealCommand {
-    Build,
-    BuildAndRun,
-    Run,
-}
-
-fn process_unreal_command(args: UnrealArgs) -> Result<(), UnrealError> {
-    let command = args.command;
-    let options = args.search_options;
-
-    let project = UnrealProject::from_cwd(options)?;
-
-    match command {
-        UnrealCommand::Build => project.build_project(),
-        UnrealCommand::BuildAndRun => project.build_and_start(),
-        UnrealCommand::Run => project.start_project(),
-    }
-}
-
-fn process_clean_command(_: CleanArgs) -> Result<(), UnrealError> {
-    println!("Clean isn't implemented yet.");
-    Ok(())
-}
-
-fn main() -> Result<(), UnrealError> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     let args = CliArgs::parse();
 
     match args.command {
-        Command::Unreal(args) => process_unreal_command(args),
-        Command::Clean(args) => process_clean_command(args),
-    }
+        Command::Unreal(args) => unreal_engine::command::process_unreal_command(args)?,
+        Command::Clean(args) => cleaner::command::process_clean_command(args).await?,
+        Command::Setup(args) => packages::command::setup(args).await?,
+    };
+
+    Ok(())
 }

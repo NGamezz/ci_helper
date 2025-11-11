@@ -1,0 +1,10 @@
+[packages.fmod]
+target_dir = "fmod"
+
+[packages.fmod.platform.windows]
+source_type = "Http"
+source = "https://drive.usercontent.google.com/download?id=1swEBPMaTk1lqipBRz9UKWmQRGZWb6hQS&confirm=xxx"
+
+[packages.fmod.platform.linux]
+source_type = "Http"
+source = "https://drive.usercontent.google.com/download?id=1xdVaqRJ9NmwuZpS1j2R4ZsNtil9kWAJE&confirm=xxx"
